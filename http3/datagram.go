@@ -106,8 +106,6 @@ type streamAssociatedDatagrammer struct {
 	rcvd     chan struct{}
 
 	settingsHandler PeerSettingsHandler
-
-	ctx context.Context
 }
 
 func (d *streamAssociatedDatagrammer) SendMessage(data []byte) error {
@@ -147,8 +145,6 @@ func (d *streamAssociatedDatagrammer) ReceiveMessage(ctx context.Context) ([]byt
 			continue
 		case <-d.str.Context().Done():
 			return nil, fmt.Errorf("the corresponding stream is closed")
-		case <-d.ctx.Done():
-			return nil, d.ctx.Err()
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
