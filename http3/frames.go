@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync/atomic"
 
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/quicvarint"
@@ -18,6 +19,26 @@ type unknownFrameHandlerFunc func(FrameType, error) (processed bool, err error)
 type frame interface{}
 
 var errHijacked = errors.New("hijacked")
+
+type PeerSettingsHandler interface {
+	HandleSettings(*settingsFrame)
+	GetPeerSettings() *settingsFrame
+}
+
+type peerSettingsHandler struct {
+	settings atomic.Pointer[settingsFrame]
+}
+
+func (m *peerSettingsHandler) HandleSettings(settings *settingsFrame) {
+	if m.settings.Load() != nil {
+		return
+	}
+	m.settings.Store(settings)
+}
+
+func (m *peerSettingsHandler) GetPeerSettings() *settingsFrame {
+	return m.settings.Load()
+}
 
 func parseNextFrame(r io.Reader, unknownFrameHandler unknownFrameHandlerFunc) (frame, error) {
 	qr := quicvarint.NewReader(r)
@@ -160,5 +181,14 @@ func (f *settingsFrame) Append(b []byte) []byte {
 		b = quicvarint.Append(b, id)
 		b = quicvarint.Append(b, val)
 	}
+	return b
+}
+
+type datagramFrame struct {
+	QuarterStreamID uint64
+}
+
+func (f *datagramFrame) Append(b []byte) []byte {
+	b = quicvarint.Append(b, f.QuarterStreamID)
 	return b
 }
